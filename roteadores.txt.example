@@ -1,0 +1,5 @@
+192.168.1.2
+192.168.1.3
+192.168.1.4
+
+# Coloque um IP por linha. Copie este arquivo para 'roteadores.txt' e ajuste os IPs apropriados para cada instância.
