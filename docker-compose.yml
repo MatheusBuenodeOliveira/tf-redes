@@ -1,0 +1,57 @@
+version: "3.9"
+
+networks:
+  roteadores_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+services:
+  r1:
+    build: .
+    container_name: r1
+    command: ["--ip", "172.28.0.2", "--neighbors", "/app/neighbors.txt"]
+    networks:
+      roteadores_net:
+        ipv4_address: 172.28.0.2
+    volumes:
+      - ./r1_neighbors.txt:/app/neighbors.txt:ro
+    stdin_open: true
+    tty: true
+
+  r2:
+    build: .
+    container_name: r2
+    command: ["--ip", "172.28.0.3", "--neighbors", "/app/neighbors.txt"]
+    networks:
+      roteadores_net:
+        ipv4_address: 172.28.0.3
+    volumes:
+      - ./r2_neighbors.txt:/app/neighbors.txt:ro
+    stdin_open: true
+    tty: true
+
+  r3:
+    build: .
+    container_name: r3
+    command: ["--ip", "172.28.0.4", "--neighbors", "/app/neighbors.txt"]
+    networks:
+      roteadores_net:
+        ipv4_address: 172.28.0.4
+    volumes:
+      - ./r3_neighbors.txt:/app/neighbors.txt:ro
+    stdin_open: true
+    tty: true
+
+  r4:
+    build: .
+    container_name: r4
+    command: ["--ip", "172.28.0.5", "--neighbors", "/app/neighbors.txt"]
+    networks:
+      roteadores_net:
+        ipv4_address: 172.28.0.5
+    volumes:
+      - ./r4_neighbors.txt:/app/neighbors.txt:ro
+    stdin_open: true
+    tty: true
