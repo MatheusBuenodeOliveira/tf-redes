@@ -146,6 +146,7 @@ class Router:
                 if next_hop == neighbor:
                     # Split Horizon: não enviar de volta ao vizinho que nos
                     # informou essa rota
+                    # Comentar aqui para remover o Split Horizon
                     continue
                 parts.append(f"*{dest};{metric}")
         return "".join(parts)
