@@ -7,8 +7,9 @@ Implementa o protocolo do trabalho conforme o PDF de especificação.
 Mapeamento rápido (referência às "Partes" do enunciado):
 - Parte 1 (Inicialização e Tabela de Roteamento): leitura de `roteadores.txt` e
     criação da tabela inicial em `Router._load_neighbors` e `Router.__init__`.
-- Split Horizon: implementado em `_build_advertisement_for_neighbor` (rotas
-    aprendidas de um vizinho não são enviadas de volta a ele).
+- Split Horizon: originalmente implementado em `_build_advertisement_for_neighbor`.
+    ATENÇÃO: Split Horizon DESATIVADO por solicitação — anúncios incluem rotas
+    independentemente do próximo salto.
 - Parte 2 (Atualização de Rotas): envio periódico em `_periodic_tasks` (a cada
     10s) e processamento de anúncios em `process_message` (tokens '*' e lógica de
     atualização/remoção). Quando a tabela muda, `_broadcast_table` envia a tabela
@@ -134,20 +135,19 @@ class Router:
                 pass
 
     def _build_advertisement_for_neighbor(self, neighbor: str) -> str:
-        # Parte 2 & Split Horizon: constrói a mensagem de anúncio para um
-        # vizinho específico, omitindo rotas cujo próximo salto é exatamente
-        # esse vizinho (Split Horizon).
+        # Parte 2: constrói a mensagem de anúncio para um vizinho específico.
+        # Split Horizon DESATIVADO: não filtramos rotas cujo próximo salto é
+        # o próprio vizinho.
         parts: List[str] = []
         with self.lock:
             for dest, (metric, next_hop) in self.routing_table.items():
                 if dest == self.my_ip:
                     # não anunciamos rotas para nós mesmos
                     continue
-                if next_hop == neighbor:
-                    # Split Horizon: não enviar de volta ao vizinho que nos
-                    # informou essa rota
-                    # Comentar aqui para remover o Split Horizon
-                    continue
+                # if next_hop == neighbor:
+                #     # Split Horizon (DESATIVADO): condicional comentada para
+                #     # permitir anúncio de rotas aprendidas do próprio vizinho
+                #     continue
                 parts.append(f"*{dest};{metric}")
         return "".join(parts)
 

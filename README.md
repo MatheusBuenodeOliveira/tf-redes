@@ -20,7 +20,7 @@ Comandos interativos do roteador:
 Observações
 - O socket UDP usa a porta 6000 conforme especificado.
 - O anúncio de rotas é enviado a cada 10s. Vizinho sem updates por 15s é considerado inativo.
-- Split Horizon é aplicado: não reenviamos rotas para o vizinho de onde foram aprendidas.
+- Split Horizon DESATIVADO (a pedido): anúncios incluem todas as rotas, mesmo as aprendidas do próprio vizinho.
 
 Mapeamento para o enunciado (PDF):
 
