@@ -44,21 +44,6 @@ Mapeamento para o enunciado (PDF):
 - Parte 6 — Envio de Mensagens entre os roteadores
 	- Use o comando interativo `send <dest> <mensagem>` no prompt do roteador para enviar mensagens de texto. O roteador roteia a mensagem usando a tabela local.
 
-Como rodar os testes
-
-- Testes unitários (parsing):
-
-```bash
-/workspaces/tf-redes/.venv/bin/python -m pytest tests/test_router_parsing.py -q
 ```
 
-- Teste de integração (simula dois roteadores em memória sem bindar sockets):
 
-```bash
-/workspaces/tf-redes/.venv/bin/python -m pytest tests/test_integration.py -q
-```
-
-Observações para desenvolvimento
-
-- Para instanciar um `Router` em testes sem que ele tente bindar a porta 6000, use `Router(<ip>, neighbors_file="roteadores.txt", bind_socket=False)`. Isso permite chamar `process_message` diretamente em testes.
-- O arquivo `router.py` contém comentários que mapeiam cada trecho do código para as Partes do enunciado (procure por "Parte X" no código).
