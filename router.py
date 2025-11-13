@@ -138,17 +138,17 @@ class Router:
         # Parte 2: constrói a mensagem de anúncio para um vizinho específico.
         # Split Horizon DESATIVADO: não filtramos rotas cujo próximo salto é
         # o próprio vizinho.
-        parts: List[str] = []
+        # Importante: evita segurar o lock durante I/O de rede; usa snapshot.
         with self.lock:
-            for dest, (metric, next_hop) in self.routing_table.items():
-                if dest == self.my_ip:
-                    # não anunciamos rotas para nós mesmos
-                    continue
-                # if next_hop == neighbor:
-                #     # Split Horizon (DESATIVADO): condicional comentada para
-                #     # permitir anúncio de rotas aprendidas do próprio vizinho
-                #     continue
-                parts.append(f"*{dest};{metric}")
+            table_snapshot = list(self.routing_table.items())
+        parts: List[str] = []
+        for dest, (metric, next_hop) in table_snapshot:
+            if dest == self.my_ip:
+                # não anunciamos rotas para nós mesmos
+                continue
+            # if next_hop == neighbor:  # Split Horizon (DESATIVADO)
+            #     continue
+            parts.append(f"*{dest};{metric}")
         return "".join(parts)
 
     def _periodic_tasks(self):
@@ -170,12 +170,17 @@ class Router:
                         except RuntimeError:
                             pass
                 last_advert_time = now
+            # Detecção de vizinhos inativos e remoções: preparar fora do lock
+            need_broadcast = False
+            neighbors_snapshot: List[str] = []
+            timed_out_msgs: List[str] = []
             with self.lock:
                 for n, last in list(self.last_seen.items()):
                     # Parte 3: se não vimos o vizinho por mais de NEIGHBOR_TIMEOUT
-                    # segundos, consideramos inativo e removemos rotas através dele
                     if now - last > NEIGHBOR_TIMEOUT:
-                        print(f"Vizinho {n} considerado inativo (sem updates por {NEIGHBOR_TIMEOUT}s)")
+                        timed_out_msgs.append(
+                            f"Vizinho {n} considerado inativo (sem updates por {NEIGHBOR_TIMEOUT}s)"
+                        )
                         # remover rotas cujo próximo salto é o vizinho inativo
                         removed = [d for d, (_, nh) in list(self.routing_table.items()) if nh == n]
                         for d in removed:
@@ -184,16 +189,21 @@ class Router:
                         del self.last_seen[n]
                         if n in self.last_advertised_by_neighbor:
                             del self.last_advertised_by_neighbor[n]
-                        # avisar demais vizinhos sobre a alteração
-                        for neigh in list(self.neighbors):
-                            if neigh == self.my_ip:
-                                continue
-                            try:
-                                advert = self._build_advertisement_for_neighbor(neigh)
-                                if advert:
-                                    self._sendto(advert, neigh)
-                            except RuntimeError:
-                                pass
+                        need_broadcast = True
+                if need_broadcast:
+                    neighbors_snapshot = [ip for ip in self.neighbors if ip != self.my_ip]
+            # imprimir mensagens fora do lock
+            for m in timed_out_msgs:
+                print(m)
+            # broadcast fora do lock para evitar deadlocks e I/O durante lock
+            if need_broadcast:
+                for neigh in neighbors_snapshot:
+                    try:
+                        advert = self._build_advertisement_for_neighbor(neigh)
+                        if advert:
+                            self._sendto(advert, neigh)
+                    except RuntimeError:
+                        pass
             time.sleep(1)
 
     def _recv_loop(self):
@@ -307,19 +317,25 @@ class Router:
             print(f"Mensagem desconhecida de {src_ip}: {msg}")
 
     def print_table(self):
+        # imprimir fora do lock para evitar segurar lock durante I/O
         with self.lock:
-            print("Tabela de roteamento:")
-            print("Destino\tMétrica\tPróximo Salto")
-            for dest, (metric, next_hop) in sorted(self.routing_table.items()):
-                print(f"{dest}\t{metric}\t{next_hop}")
+            table_snapshot = sorted(self.routing_table.items())
+        print("Tabela de roteamento:")
+        print("Destino\tMétrica\tPróximo Salto")
+        for dest, (metric, next_hop) in table_snapshot:
+            print(f"{dest}\t{metric}\t{next_hop}")
 
     def print_neighbors(self):
+        # imprimir fora do lock para evitar segurar lock durante I/O
         with self.lock:
-            print("Vizinhos configurados:")
-            for n in sorted(self.neighbors):
-                last = self.last_seen.get(n)
-                status = "ativo" if last and time.time() - last <= NEIGHBOR_TIMEOUT else "inativo"
-                print(f"{n}\t{status}")
+            neighbors_snapshot = sorted(self.neighbors)
+            last_seen_snapshot = dict(self.last_seen)
+        print("Vizinhos configurados:")
+        now = time.time()
+        for n in neighbors_snapshot:
+            last = last_seen_snapshot.get(n)
+            status = "ativo" if last and now - last <= NEIGHBOR_TIMEOUT else "inativo"
+            print(f"{n}\t{status}")
 
     def _cli_loop(self):
         print("Comandos: send <dest> <mensagem>, table, neighbors, quit")
